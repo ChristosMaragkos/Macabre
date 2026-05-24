@@ -1,0 +1,139 @@
+#pragma once
+
+// TODO: Colors enum?
+
+typedef unsigned int size_t;
+
+typedef signed int int16_t;
+typedef unsigned int uint16_t;
+
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+
+typedef signed long int32_t;
+typedef unsigned long uint32_t;
+
+#define SRAM_START ((volatile uint8_t *)0xF820)
+#define SRAM_SIZE 512
+
+#define ARAM_START ((volatile uint8_t *)0xF800)
+
+#define BANK(n) __attribute__((annotate("bank_" #n)))
+
+typedef enum {
+    ATTR_NONE = 0,
+    ATTR_HFLIP = 1 << 0,
+    ATTR_VFLIP = 1 << 1,
+    ATTR_HUD = 1 << 2,
+    ATTR_BG = 1 << 3,
+    ATTR_ALTPAL = 1 << 4
+} SpriteAttr;
+
+typedef enum {
+    CHNL_SQ_1,
+    CHNL_SQ_2,
+    CHNL_TR_1,
+    CHNL_TR_2,
+    CHNL_SAW_1,
+    CHNL_SAW_2,
+    CHNL_NS_1,
+    CHNL_NS_2,
+} AudioChannel;
+
+typedef enum {
+    BTN_NONE = 0,
+    BTN_UP = 1 << 0,
+    BTN_DOWN = 1 << 1,
+    BTN_LEFT = 1 << 2,
+    BTN_RIGHT = 1 << 3,
+    BTN_A = 1 << 4,
+    BTN_B = 1 << 5,
+    BTN_START = 1 << 6,
+    BTN_OPTION = 1 << 7
+} Button;
+
+typedef enum { DEFAULT = 0, NO_TEXT = 1, NO_OAM = 2, NONE = 3 } BlitMode;
+
+// BIOS
+void *__sharpie_alloca(size_t byteAmount);
+void *__sharpie_stackalloc(void *src, size_t byteAmount);
+void __sharpie_delay(int frames);
+void __sharpie_memcpy(void *dst, const void *src, size_t length);
+void __sharpie_memset(void *dst, int value, size_t length);
+void __sharpie_memmove(void *dst, const void *src, size_t length);
+int __sharpie_memcmp(const void *ptr1, const void *ptr2, size_t length);
+void __sharpie_pal_reset(void);
+void __sharpie_print(const char *str, int grid_x, int grid_y);
+
+// Hardware
+void __sharpie_draw(int x, int y, char id, int attr_and_type);
+void __sharpie_cls(int color);
+void __sharpie_hard_cls(int color);
+void __sharpie_cam(int dx, int dy);
+void __sharpie_set_cam(int x, int y);
+void __sharpie_swc(unsigned char active, unsigned char master);
+Button __sharpie_input(unsigned char controller);
+int __sharpie_col(unsigned int oam_idx);
+int __sharpie_oam_tag(unsigned int oam_idx);
+int __sharpie_get_oam(void);
+void __sharpie_set_oam(unsigned int cursor);
+void __sharpie_play_note(AudioChannel channel, int note, int instr);
+void __sharpie_play_song(const void *address);
+void __sharpie_stop(int channel);
+void __sharpie_mute(void);
+void __sharpie_hard_mute(void);
+void __sharpie_vblnk(void);
+void __sharpie_force_vblnk(void);
+void __sharpie_switch_bank(unsigned char bank);
+unsigned char __sharpie_get_bank();
+void __sharpie_save(void);
+void __sharpie_halt(void);
+void __sharpie_crash(void);
+int __sharpie_random(int maxExclusive);
+void __sharpie_set_cursor(int x, int y);
+void __sharpie_move_cursor(int x, int y);
+char __sharpie_read_vram(unsigned int yxPacked);
+void __sharpie_write_vram(unsigned int yxPacked, char value);
+void __sharpie_blit_mode(BlitMode mode);
+void __sharpie_debug(int value_to_print);
+
+// --- Standard C Aliases ---
+#define alloca(size) __sharpie_alloca(size)
+#define memcpy(dst, src, len) __sharpie_memcpy(dst, src, len)
+#define memset(dst, val, len) __sharpie_memset(dst, val, len)
+#define memcmp(p1, p2, len) __sharpie_memcmp(p1, p2, len)
+#define memmove(dst, src, len) __sharpie_memmove(dst, src, len)
+
+// --- Sharpie Macros & Aliases ---
+// Automatically packs Attr (Low Byte) and Type (High Byte)
+#define draw_sprite(x, y, id, attr, type)                                      \
+    __sharpie_draw(x, y, id, (attr) | ((type) << 8))
+
+#define yield() __sharpie_vblnk()
+#define restart_frame() __sharpie_force_vblnk()
+#define delay(frames) __sharpie_delay(frames)
+#define clear_screen(color) __sharpie_cls(color)
+#define set_camera(x, y) __sharpie_set_cam(x, y)
+#define move_camera(dx, dy) __sharpie_cam(dx, dy)
+#define get_input(controller) __sharpie_input(controller)
+#define check_collision(idx) __sharpie_col(idx)
+#define play_note(ch, note, i) __sharpie_play_note(ch, note, i)
+#define play_song(addr) __sharpie_play_song(addr)
+#define halt() __sharpie_halt()
+#define random(maxExclusive) __sharpie_random(maxExclusive)
+#define set_cursor(x, y) __sharpie_set_cursor(x, y)
+#define move_cursor(x, y) __sharpie_move_cursor(x, y)
+#define print(str, x, y) __sharpie_print(str, x, y)
+#define crash() __sharpie_crash()
+#define swap_color(active, master) __sharpie_swc(active, master)
+#define print_breadcrumb(value) __sharpie_debug(value)
+#define switch_bank(b) __sharpie_switch_bank(b)
+#define get_current_bank() __sharpie_get_bank()
+
+#define read_vram(x, y) __sharpie_read_vram((((y) & 0xFF) << 8) | ((x) & 0xFF))
+#define write_vram(x, y, value)                                                \
+    __sharpie_write_vram((((y) & 0xFF) << 8) | ((x) & 0xFF), (value))
+
+#define set_blit_mode(mode) __sharpie_blit_mode(mode)
+
+#define button_down(state, btn) (((state) & (btn)))

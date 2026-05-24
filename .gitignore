@@ -1,0 +1,7 @@
+# Avoid shoving the corpus into the repo
+training/*.txt
+.clang-format
+
+# Anything containing binaries is also out of the question
+out/
+bin/
