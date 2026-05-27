@@ -18,8 +18,6 @@ typedef unsigned long uint32_t;
 
 #define ARAM_START ((volatile uint8_t *)0xF800)
 
-#define BANK(n) __attribute__((annotate("bank_" #n)))
-
 typedef enum {
     ATTR_NONE = 0,
     ATTR_HFLIP = 1 << 0,

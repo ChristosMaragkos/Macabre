@@ -1,43 +1,60 @@
-#include "font.h"
+#include "include/font.h"
+#include "include/macabre_table.h"
 #include "include/sharpie.h"
+#include "include/text_rendering.h"
 
 #define true 1
 #define false 0
+#define YES(b) ((b) == true)
 #define NOT(b) ((b) == false)
 
-const unsigned char MIN_X = 32;
-const unsigned char MAX_X = 221;
+static const unsigned char MIN_X = 32;
+static const unsigned char MAX_X = 221;
 
-const unsigned char MIN_Y = 210;
-const unsigned char MAX_Y = 230;
+static const unsigned char MIN_Y = 210;
+static const unsigned char MAX_Y = 230;
 
-const unsigned char COLOR_BG = 14;
+static const unsigned char COLOR_BG = 14;
 
-const unsigned char LAST_CHAR_POS_X = 112;
-const unsigned char LAST_CHAR_POS_Y = 230;
+static const unsigned char LAST_CHAR_POS_X = 132;
+static const unsigned char LAST_CHAR_POS_Y = 230;
 
 // we reuse the same sprites, just flipped. Retro console dev, baby!
-const unsigned char SPR_CURSOR_RIGHT = FONT_SPRITE_COUNT - 3;
-const unsigned char SPR_CURSOR_LEFT = FONT_SPRITE_COUNT - 3;
+static const unsigned char SPR_CURSOR_RIGHT = FONT_SPRITE_COUNT - 3;
+static const unsigned char SPR_CURSOR_LEFT = FONT_SPRITE_COUNT - 3;
 
-const unsigned char SPR_CURSOR_TOP = FONT_SPRITE_COUNT - 4;
-const unsigned char SPR_CURSOR_BOTTOM = FONT_SPRITE_COUNT - 4;
+static const unsigned char SPR_CURSOR_TOP = FONT_SPRITE_COUNT - 4;
+static const unsigned char SPR_CURSOR_BOTTOM = FONT_SPRITE_COUNT - 4;
 
 // How many frames can the cursor not be moved for,
 // once it's moved once?
-const unsigned char CURSOR_INITIAL_DELAY = 8;
+static const unsigned char CURSOR_INITIAL_DELAY = 8;
 
-unsigned char selected_char_x = MIN_X;
-unsigned char selected_char_y = MIN_Y;
+static const unsigned char APPEND_INITIAL_DELAY = 5;
+static const unsigned char BACKSPACE_INITIAL_DELAY = 5;
 
-unsigned int oam_cursor_after_keyboard = 0;
+static const unsigned char MAX_INPUT_LENGTH = 64;
 
-Button current_frame_input = BTN_NONE;
+static unsigned int oam_cursor_after_keyboard = 0;
 
-unsigned char cursor_moving = false;
-unsigned char cursor_move_delay = 0;
+static unsigned char cursor_moving = false;
+static unsigned char cursor_move_delay = 0;
+
+static Button current_frame_input = BTN_NONE;
+
+static unsigned char selected_char_x = MIN_X;
+static unsigned char selected_char_y = MIN_Y;
+
+char input_buffer[64];
+static unsigned char input_length = 0;
+
+static unsigned char append_delay = 0;
+static unsigned char backspace_delay = 0;
 
 void draw_cursor(unsigned char x, unsigned char y);
+unsigned char keyboard_pos_to_char_idx(unsigned char x, unsigned char y);
+void input_append(unsigned char char_idx);
+void input_backspace(void);
 
 int main(void) {
     asm("ATTR 17");
@@ -49,10 +66,15 @@ int main(void) {
 
         for (char i = 0; i < 48; ++i) {
             if (i == 36) {
+                x += 10;
+                if (x > MAX_X) {
+                    x = MIN_X;
+                    y += 10;
+                }
                 continue;
             }
 
-            draw_sprite(x, y, i, 0, 0);
+            draw_sprite(x, y, i, ATTR_HUD, 0);
             x += 10;
 
             if (x > MAX_X) {
@@ -121,6 +143,34 @@ int main(void) {
             selected_char_y = MIN_Y;
         }
         draw_cursor(selected_char_x, selected_char_y);
+        restart_frame();
+
+        if (current_frame_input == BTN_A) {
+            if (append_delay == 0) {
+                unsigned char idx =
+                    keyboard_pos_to_char_idx(selected_char_x, selected_char_y);
+                if (idx != 255) {
+                    input_append(idx);
+                }
+                append_delay = APPEND_INITIAL_DELAY;
+            } else {
+                --append_delay;
+            }
+        } else if (current_frame_input == BTN_B) {
+            if (backspace_delay == 0) {
+                input_backspace();
+                backspace_delay = BACKSPACE_INITIAL_DELAY;
+            } else {
+                --backspace_delay;
+            }
+        } else if (current_frame_input == BTN_START) {
+            // TODO: trigger generation pass
+            input_length = 0;
+            input_buffer[0] = 0;
+        }
+
+        emit_string(input_buffer, input_length);
+
         yield();
     }
 
@@ -128,9 +178,53 @@ int main(void) {
 }
 
 void draw_cursor(unsigned char x, unsigned char y) {
-    draw_sprite(x, y - 8, SPR_CURSOR_TOP, ATTR_NONE, 0);
-    draw_sprite(x + 8, y, SPR_CURSOR_LEFT, ATTR_NONE, 0);
+    draw_sprite(x, y - 8, SPR_CURSOR_TOP, ATTR_HUD, 0);
+    draw_sprite(x + 8, y, SPR_CURSOR_LEFT, ATTR_HUD, 0);
 
-    draw_sprite(x - 8, y, SPR_CURSOR_RIGHT, ATTR_HFLIP, 0);
-    draw_sprite(x, y + 8, SPR_CURSOR_BOTTOM, ATTR_VFLIP, 0);
+    draw_sprite(x - 8, y, SPR_CURSOR_RIGHT, ATTR_HFLIP | ATTR_HUD, 0);
+    draw_sprite(x, y + 8, SPR_CURSOR_BOTTOM, ATTR_VFLIP | ATTR_HUD, 0);
+}
+
+unsigned char keyboard_pos_to_char_idx(unsigned char x, unsigned char y) {
+    unsigned char col = (x - MIN_X) / 10;
+    unsigned char row = (y - MIN_Y) / 10;
+
+    if (row == 0) {
+        if (col > 18)
+            return 255;
+        return col;
+    }
+
+    if (row == 1) {
+        if (col > 18)
+            return 255;
+        if (col <= 16)
+            return 19 + col;
+        if (col == 17)
+            return 36; // space
+        return 37;     // .
+    }
+
+    if (row == 2) {
+        if (col <= 9)
+            return 38 + col;
+        if (col == 10)
+            return 54;
+        return 255;
+    }
+
+    return 255;
+}
+
+void input_append(unsigned char char_idx) {
+    // accounting for the last element being the null terminator
+    if (input_length >= MAX_INPUT_LENGTH - 1)
+        return;
+    input_buffer[input_length++] = sprite_to_ascii(char_idx);
+}
+
+void input_backspace(void) {
+    if (input_length == 0)
+        return;
+    input_buffer[--input_length] = 0;
 }

@@ -1,4 +1,5 @@
 #pragma bank 0
+#include "include/macabre_table.h"
 // ================================================
 // MACABRE - Markov-Assisted Character
 //           Approximation-Based Recursion Engine
@@ -8,24 +9,23 @@
 // if you need to change anything.
 // ================================================
 
-// --- Constants ---
-#define MACABRE_CHARSET_SIZE 64
-#define MACABRE_REAL_CHARS 49
-#define MACABRE_VOCAB_SIZE 128
-#define MACABRE_SPACE_IDX 36
-#define MACABRE_NEWLINE_IDX 48
-
 // --- Character Set ---
 // sprite_to_ascii gives you the ASCII value of
 // the character at index i.
 // Use this to convert a generated index back to a
 // character you can display on screen.
-const unsigned char sprite_to_ascii[64] = {
+const unsigned char sprite_to_ascii_table[64] = {
     65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
     81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 48, 49, 50, 51, 52, 53,
     54, 55, 56, 57, 32, 46, 44, 33, 63, 39, 45, 58, 59, 40, 41, 35,
-    10, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    10, 0,  0,  0,  0,  0,  36, 0,  0,  0,  0,  0,  0,  0,  0,  0,
 };
+
+unsigned char sprite_to_ascii(unsigned int index) {
+    if (index >= 64)
+        return 65;
+    return sprite_to_ascii_table[index];
+}
 
 // ascii_to_sprite is the reverse; given a raw ASCII value,
 // it gives you back the sprite index.
@@ -127,6 +127,8 @@ unsigned char ascii_to_sprite(unsigned char sprite_id) {
             return 46;
         case 35:
             return 47;
+        case 36:
+            return 54;
         case 10:
             return 48;
         default:

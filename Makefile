@@ -1,18 +1,25 @@
 CC = bin/sharpie
 CFLAGS = -O
-TARGET = out/macabre.shr
-SRC = src/main.c src/font.c
+ASMFLAGS = -OS
+TARGET_SHR = out/macabre.shr
+TARGET_ASM = out/macabre.asm
+SRC = src/main.c src/font.c src/macabre_table.c src/text_rendering.c
 ASSETS = assets/font.png
 
-all: $(TARGET)
+all: $(TARGET_SHR)
 
-$(TARGET): $(SRC)
-	$(CC) $(SRC) $(CFLAGS) -o $(TARGET)
+$(TARGET_SHR): $(SRC)
+	$(CC) $(SRC) $(CFLAGS) -o $(TARGET_SHR)
 
 export_assets: $(ASSETS)
-	$(CC) $(ASSETS) -o src/
+	$(CC) $(ASSETS) -o src/include
+	sed -i "s/font.h/include\/font.h/" src/include/font.c
+	mv src/include/font.c src/
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET_SHR) $(TARGET_ASM)
 
-.PHONY: all export_assets clean
+asm:
+	$(CC) $(SRC) $(ASMFLAGS) -o $(TARGET_ASM)
+
+.PHONY: all export_assets asm clean
