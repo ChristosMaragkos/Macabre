@@ -221,6 +221,7 @@ void input_append(unsigned char char_idx) {
     if (input_length >= MAX_INPUT_LENGTH - 1)
         return;
     input_buffer[input_length++] = sprite_to_ascii(char_idx);
+    input_buffer[input_length] = 0;
 }
 
 void input_backspace(void) {
