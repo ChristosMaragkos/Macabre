@@ -1,6 +1,7 @@
 #include "include/font.h"
 #include "include/macabre_table.h"
 #include "include/sharpie.h"
+#include "include/text_generation.h"
 #include "include/text_rendering.h"
 
 #define true 1
@@ -165,6 +166,8 @@ int main(void) {
             }
         } else if (current_frame_input == BTN_START) {
             // TODO: trigger generation pass
+            StringView seed;
+            find_last_word(input_buffer, input_length, &seed);
             input_length = 0;
             input_buffer[0] = 0;
         }
