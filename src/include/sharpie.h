@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
 // TODO: Colors enum?
 
 typedef unsigned int size_t;
